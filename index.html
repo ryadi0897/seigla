@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion de Contrôle - SEIGLA</title>
+    <style>
+        /* --- Configuration des couleurs et polices (CSS Variables) --- */
+        :root {
+            --couleur-header: #f0a500;
+            --couleur-bouton-principal: #f0a500;
+            --couleur-bouton-hover: #ffbf00;
+            --couleur-bouton-retour: #6d4c41;
+            --couleur-bouton-retour-hover: #8d6e63;
+            --couleur-bouton-valider: #28a745;
+            --couleur-bouton-valider-hover: #218838;
+            --couleur-texte-clair: white;
+            --couleur-texte-fonce: black;
+            --couleur-fond: white;
+            --couleur-bordure: #ddd;
+        }
+
+        /* --- Styles Généraux --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            background-color: var(--couleur-fond);
+            color: var(--couleur-texte-fonce);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            box-sizing: border-box;
+            flex-grow: 1;
+        }
+
+        /* --- Header --- */
+        .app-header {
+            background-color: var(--couleur-header);
+            color: var(--couleur-texte-fonce);
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-header .logo {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .app-header .title {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        /* --- Boutons --- */
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 20px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.2s;
+            min-width: 200px;
+        }
+
+        .btn-principal {
+            background-color: var(--couleur-bouton-principal);
+            color: var(--couleur-texte-fonce);
+        }
+        .btn-principal:hover {
+            background-color: var(--couleur-bouton-hover);
+        }
+
+        .btn-retour {
+            background-color: var(--couleur-bouton-retour);
+            color: var(--couleur-texte-clair);
+        }
+        .btn-retour:hover {
+            background-color: var(--couleur-bouton-retour-hover);
+        }
+
+        .btn-valider {
+            background-color: var(--couleur-bouton-valider);
+            color: var(--couleur-texte-clair);
+        }
+        .btn-valider:hover {
+            background-color: var(--couleur-bouton-valider-hover);
+        }
+        
+        .btn:disabled {
+            background-color: #c0c0c0;
+            cursor: not-allowed;
+        }
+
+        /* --- Écrans (on en affiche un à la fois) --- */
+        .screen {
+            display: none; /* Caché par défaut */
+        }
+        .screen.active {
+            display: block; /* Affiché si la classe 'active' est présente */
+        }
+        
+        h2 { margin-top: 0; }
+        
+        /* --- Écran Liste --- */
+        #screen-list-controles .table-container {
+            overflow-x: auto;
+        }
+        #controles-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        #controles-table th, #controles-table td {
+            padding: 12px 15px;
+            border: 1px solid var(--couleur-bordure);
+            text-align: left;
+        }
+        #controles-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        #controles-table tr:hover {
+            background-color: #f5f5f5;
+        }
+        #controles-table tr.selected {
+            background-color: #fff3cd;
+        }
+        #controles-table .editable-cell:hover {
+            background-color: #e8f4fd;
+            cursor: pointer;
+        }
+        #controles-table .editable-cell input {
+            width: 95%;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        #controles-table .empty-row td {
+            text-align: center;
+            color: #888;
+            padding: 30px;
+        }
+
+        /* --- Écran Saisie --- */
+        #screen-saisie .form-grid {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 15px;
+            align-items: center;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        #screen-saisie .form-grid label {
+            font-weight: bold;
+            text-align: right;
+            padding: 10px;
+            border-radius: 20px;
+        }
+        #screen-saisie .form-grid .label-lot,
+        #screen-saisie .form-grid .label-snit,
+        #screen-saisie .form-grid .label-normal {
+            background-color: var(--couleur-bouton-principal);
+            color: var(--couleur-texte-fonce);
+        }
+        #screen-saisie .form-grid .label-pl {
+            background-color: var(--couleur-bouton-retour);
+            color: var(--couleur-texte-clair);
+        }
+        #screen-saisie .form-grid input {
+            padding: 10px;
+            font-size: 1em;
+            border: 1px solid var(--couleur-bordure);
+            border-radius: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #status-message {
+            text-align: center;
+            margin-top: 15px;
+            font-weight: bold;
+            height: 20px;
+        }
+        #status-message.success { color: green; }
+        #status-message.error { color: red; }
+
+
+        /* --- Utilitaires --- */
+        .text-center { text-align: center; }
+        .mt-20 { margin-top: 20px; }
+        .mt-40 { margin-top: 40px; }
+        .space-around { justify-content: space-around; }
+        .flex-buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+        .sub-text { color: #666; font-size: 0.9em; }
+
+    </style>
+</head>
+<body>
+
+    <header class="app-header">
+        <div class="logo">SEIGLA</div>
+        <div class="title">GESTION DE CONTRÔLE</div>
+    </header>
+
+    <div class="container">
+        <!-- ====================================================== -->
+        <!-- == ÉCRAN 1 : LISTE DES CONTRÔLES (ÉCRAN D'ACCUEIL)   == -->
+        <!-- ====================================================== -->
+        <div id="screen-list-controles" class="screen active">
+            <h2>Liste des contrôles</h2>
+            <p class="sub-text">Double-cliquez sur 'Statut' ou 'Notes' pour modifier.</p>
+            
+            <div class="flex-buttons">
+                <button id="btn-ajouter-controle" class="btn btn-principal">AJOUTER UN CONTRÔLE</button>
+                <button id="btn-modifier-controle" class="btn btn-principal" disabled>MODIFIER LE CONTRÔLE</button>
+            </div>
+
+            <div class="table-container mt-20">
+                <table id="controles-table">
+                    <thead>
+                        <tr>
+                            <th>Contrôle</th>
+                            <th>Statut</th>
+                            <th>Dernière modification</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="controles-table-body">
+                        <!-- Les lignes seront générées par JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-40 text-center">
+                <h3>Sauvegarde des données</h3>
+                <p class="sub-text">Les données sont stockées dans votre navigateur. Utilisez ces boutons pour les sauvegarder sur votre ordinateur ou les restaurer.</p>
+                <div class="flex-buttons space-around">
+                    <button id="btn-export" class="btn btn-retour">Exporter les données</button>
+                    <label class="btn btn-retour">
+                        Importer les données
+                        <input type="file" id="input-import" accept=".json" style="display: none;">
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====================================================== -->
+        <!-- == ÉCRAN 2 : CHOIX DE LA SESSION                    == -->
+        <!-- ====================================================== -->
+        <div id="screen-session-choice" class="screen">
+            <h2 id="session-choice-title">Fichier : </h2>
+            <p class="text-center mt-40">Choisissez une session de saisie :</p>
+            <div class="flex-buttons space-around mt-20">
+                <button class="btn btn-principal session-btn" data-session="MATIN">MATIN</button>
+                <button class="btn btn-principal session-btn" data-session="MIDI">MIDI</button>
+                <button class="btn btn-principal session-btn" data-session="SOIR">SOIR</button>
+            </div>
+            <div class="text-center mt-40">
+                <button id="btn-retour-liste" class="btn btn-retour">Retour au menu</button>
+            </div>
+        </div>
+
+        <!-- ====================================================== -->
+        <!-- == ÉCRAN 3 : SAISIE DES DONNÉES                     == -->
+        <!-- ====================================================== -->
+        <div id="screen-saisie" class="screen">
+            <h2 id="saisie-title" class="text-center">Saisie pour la session : </h2>
+
+            <form id="saisie-form" class="mt-40">
+                <div class="form-grid">
+                    <label class="label-lot">LOT</label>
+                    <input type="text" id="input-lot" required>
+
+                    <label class="label-snit">SNIT</label>
+                    <input type="number" id="input-snit" required>
+
+                    <label class="label-normal">NORMAL</label>
+                    <input type="number" id="input-normal" required>
+
+                    <label id="label-pl" class="label-pl">PL (...) </label>
+                    <input type="text" id="input-pl" required pattern="[0-9]+([,\.][0-9]+)?" title="Entrez un nombre (ex: 15.5 ou 15,5)">
+                </div>
+
+                <div class="text-center mt-20">
+                     <button type="submit" class="btn btn-principal">Ajouter / Mettre à jour</button>
+                </div>
+            </form>
+            
+            <div id="status-message"></div>
+
+            <div class="text-center mt-40">
+                <button id="btn-terminer-saisie" class="btn btn-valider">TERMINER ET RETOUR</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- CONSTANTES ET ÉTAT GLOBAL ---
+        const FICHIER_PREFIXE = "controle-";
+        const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR'];
+        const METADATA_KEY = "seigla_controles_metadata";
+        const DATA_KEY = "seigla_controles_data";
+
+        let state = {
+            activeFichier: null,
+            activeSession: null,
+            selectedRow: null,
+        };
+
+        // --- SÉLECTEURS D'ÉLÉMENTS DU DOM ---
+        const screens = {
+            list: document.getElementById('screen-list-controles'),
+            sessionChoice: document.getElementById('screen-session-choice'),
+            saisie: document.getElementById('screen-saisie'),
+        };
+        const btnAjouterControle = document.getElementById('btn-ajouter-controle');
+        const btnModifierControle = document.getElementById('btn-modifier-controle');
+        const btnRetourListe = document.getElementById('btn-retour-liste');
+        const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
+        const btnExport = document.getElementById('btn-export');
+        const inputImport = document.getElementById('input-import');
+        const controlesTableBody = document.getElementById('controles-table-body');
+        const saisieForm = document.getElementById('saisie-form');
+
+        // --- FONCTIONS DE GESTION DES DONNÉES (avec localStorage) ---
+        const loadMetadata = () => JSON.parse(localStorage.getItem(METADATA_KEY)) || {};
+        const saveMetadata = (data) => localStorage.setItem(METADATA_KEY, JSON.stringify(data));
+        const loadData = () => JSON.parse(localStorage.getItem(DATA_KEY)) || {};
+        const saveData = (data) => localStorage.setItem(DATA_KEY, JSON.stringify(data));
+
+        // --- FONCTIONS DE NAVIGATION ENTRE ÉCRANS ---
+        const showScreen = (screenName) => {
+            Object.values(screens).forEach(s => s.classList.remove('active'));
+            screens[screenName].classList.add('active');
+        };
+
+        // --- LOGIQUE DE L'ÉCRAN LISTE ---
+        const renderListeControles = () => {
+            const metadata = loadMetadata();
+            const data = loadData();
+            const fichiers = Object.keys(data).sort().reverse();
+            
+            controlesTableBody.innerHTML = ''; // Vider la table
+            btnModifierControle.disabled = true;
+            if (state.selectedRow) {
+                state.selectedRow.classList.remove('selected');
+                state.selectedRow = null;
+            }
+
+            if (fichiers.length === 0) {
+                controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="4">Aucun contrôle trouvé. Cliquez sur "AJOUTER UN CONTRÔLE" pour commencer.</td></tr>`;
+                return;
+            }
+
+            fichiers.forEach(fichier => {
+                const meta = metadata[fichier] || { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                const dateModif = new Date(meta.lastModif).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const nomControle = fichier.replace(FICHIER_PREFIXE, "").replace(".xlsx", "");
+
+                const row = document.createElement('tr');
+                row.dataset.fichier = fichier;
+                row.innerHTML = `
+                    <td>${nomControle}</td>
+                    <td class="editable-cell" data-field="statut">${meta.statut}</td>
+                    <td>${dateModif}</td>
+                    <td class="editable-cell" data-field="notes">${meta.notes}</td>
+                `;
+                controlesTableBody.appendChild(row);
+            });
+        };
+
+        const handleRowClick = (e) => {
+            const row = e.target.closest('tr');
+            if (!row || !row.dataset.fichier) return;
+
+            if (state.selectedRow) {
+                state.selectedRow.classList.remove('selected');
+            }
+            row.classList.add('selected');
+            state.selectedRow = row;
+            state.activeFichier = row.dataset.fichier;
+            btnModifierControle.disabled = false;
+        };
+        
+        const handleCellDoubleClick = (e) => {
+            const cell = e.target.closest('.editable-cell');
+            if (!cell || cell.querySelector('input')) return;
+
+            const originalValue = cell.textContent;
+            const field = cell.dataset.field;
+            const fichier = cell.parentElement.dataset.fichier;
+            
+            cell.innerHTML = `<input type="text" value="${originalValue}" />`;
+            const input = cell.querySelector('input');
+            input.focus();
+
+            const saveChange = () => {
+                const newValue = input.value;
+                cell.textContent = newValue;
+                
+                const metadata = loadMetadata();
+                metadata[fichier] = metadata[fichier] || {};
+                metadata[fichier][field] = newValue;
+                metadata[fichier].lastModif = new Date().toISOString();
+                saveMetadata(metadata);
+                
+                renderListeControles(); // Re-render pour mettre à jour la date
+            };
+
+            input.addEventListener('blur', saveChange);
+            input.addEventListener('keydown', (evt) => {
+                if (evt.key === 'Enter') input.blur();
+                if (evt.key === 'Escape') {
+                    cell.textContent = originalValue;
+                    input.removeEventListener('blur', saveChange);
+                }
+            });
+        };
+        
+        btnAjouterControle.addEventListener('click', () => {
+            const now = new Date();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const year = now.getFullYear().toString().slice(-2);
+            const nomFichier = `${FICHIER_PREFIXE}${month}-${year}`; // .xlsx n'est plus pertinent
+
+            const data = loadData();
+            const metadata = loadMetadata();
+
+            if (!data[nomFichier]) {
+                data[nomFichier] = [];
+                metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                saveData(data);
+                saveMetadata(metadata);
+            }
+            
+            state.activeFichier = nomFichier;
+            showScreen('sessionChoice');
+            document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
+        });
+        
+        btnModifierControle.addEventListener('click', () => {
+            if (!state.activeFichier) return;
+            showScreen('sessionChoice');
+            document.getElementById('session-choice-title').textContent = `Fichier : ${state.activeFichier.replace(FICHIER_PREFIXE, "")}`;
+        });
+
+        // --- LOGIQUE DE L'ÉCRAN CHOIX DE SESSION ---
+        document.querySelector('#screen-session-choice').addEventListener('click', (e) => {
+            if (e.target.classList.contains('session-btn')) {
+                state.activeSession = e.target.dataset.session;
+                document.getElementById('saisie-title').textContent = `Saisie pour la session : ${state.activeSession}`;
+                document.getElementById('label-pl').textContent = `PL (${state.activeSession})`;
+                saisieForm.reset();
+                document.getElementById('input-lot').focus();
+                document.getElementById('status-message').textContent = '';
+                showScreen('saisie');
+            }
+        });
+        btnRetourListe.addEventListener('click', () => {
+            renderListeControles();
+            showScreen('list');
+        });
+
+        // --- LOGIQUE DE L'ÉCRAN SAISIE ---
+        saisieForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const lot = document.getElementById('input-lot').value.trim();
+            const snit_str = document.getElementById('input-snit').value.trim();
+            const normal_str = document.getElementById('input-normal').value.trim();
+            const pl_str = document.getElementById('input-pl').value.trim().replace(',', '.');
+            
+            const statusMessage = document.getElementById('status-message');
+
+            if (!lot || !snit_str || !normal_str || !pl_str) {
+                statusMessage.textContent = "Erreur: Tous les champs sont requis.";
+                statusMessage.className = "error";
+                return;
+            }
+
+            const snit = parseInt(snit_str);
+            const normal = parseInt(normal_str);
+            const pl = parseFloat(pl_str);
+
+            if (isNaN(snit) || isNaN(normal) || isNaN(pl)) {
+                statusMessage.textContent = "Erreur: SNIT, NORMAL et PL doivent être des nombres.";
+                statusMessage.className = "error";
+                return;
+            }
+            
+            const data = loadData();
+            const controleData = data[state.activeFichier];
+            
+            let foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === snit && v.NORMAL === normal);
+            if (foundIndex === -1) {
+                foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === normal && v.NORMAL === snit);
+            }
+
+            if (foundIndex !== -1) {
+                controleData[foundIndex][state.activeSession] = pl;
+                statusMessage.textContent = `OK. Vache ${snit}/${normal} mise à jour.`;
+                statusMessage.className = "success";
+            } else {
+                const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal };
+                COLONNES_DATA.forEach(col => {
+                    if (!['LOT', 'SNIT', 'NORMAL'].includes(col)) nouvelleVache[col] = null;
+                });
+                nouvelleVache[state.activeSession] = pl;
+                controleData.push(nouvelleVache);
+                statusMessage.textContent = `OK. Nouvelle vache ${snit}/${normal} ajoutée.`;
+                statusMessage.className = "success";
+            }
+            
+            saveData(data);
+            
+            // Mise à jour date de modification
+            const metadata = loadMetadata();
+            metadata[state.activeFichier].lastModif = new Date().toISOString();
+            saveMetadata(metadata);
+            
+            // Réinitialiser les champs pour la saisie suivante
+            ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('input-snit').focus();
+        });
+
+        // Gérer la touche Entrée pour passer au champ suivant
+        const inputs = ['input-lot', 'input-snit', 'input-normal', 'input-pl'];
+        inputs.forEach((id, index) => {
+            const input = document.getElementById(id);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (index < inputs.length - 1) {
+                        document.getElementById(inputs[index + 1]).focus();
+                    } else {
+                        saisieForm.requestSubmit();
+                    }
+                }
+            });
+        });
+
+        btnTerminerSaisie.addEventListener('click', () => {
+            showScreen('sessionChoice');
+        });
+
+        // --- FONCTIONS D'IMPORT/EXPORT ---
+        btnExport.addEventListener('click', () => {
+            const allData = {
+                metadata: loadMetadata(),
+                data: loadData()
+            };
+            const dataStr = "data:text/json;charset=utf--8," + encodeURIComponent(JSON.stringify(allData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", `seigla_backup_${new Date().toISOString().split('T')[0]}.json`);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+
+        inputImport.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.metadata && imported.data) {
+                        if (confirm("Voulez-vous vraiment remplacer toutes les données actuelles par celles du fichier importé ?")) {
+                            saveMetadata(imported.metadata);
+                            saveData(imported.data);
+                            renderListeControles();
+                            alert("Importation réussie !");
+                        }
+                    } else {
+                        alert("Erreur: Le fichier JSON n'a pas le format attendu (metadata/data).");
+                    }
+                } catch (error) {
+                    alert("Erreur lors de la lecture du fichier. Assurez-vous que c'est un fichier JSON valide.");
+                    console.error("JSON Parse Error:", error);
+                }
+            };
+            reader.readAsText(file);
+            inputImport.value = ''; // Permet de réimporter le même fichier
+        });
+
+        // --- INITIALISATION ---
+        controlesTableBody.addEventListener('click', handleRowClick);
+        controlesTableBody.addEventListener('dblclick', handleCellDoubleClick);
+        renderListeControles();
+    });
+    </script>
+
+</body>
+</html>
