@@ -4,8 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestion de Contrôle - SEIGLA</title>
-    <link rel="icon" href="icon.ico" type="image/x-icon">
+    
+    <!-- MODIFIÉ : Utilisation d'un fichier .png pour l'icône, que vous devez créer avec des coins arrondis -->
+    <link rel="icon" href="icon.png" type="image/png">
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         :root {
             --couleur-header: #f0a500; --couleur-bouton-principal: #f0a500;
@@ -17,7 +21,15 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: var(--couleur-fond); color: var(--couleur-texte-fonce); display: flex; flex-direction: column; min-height: 100vh; }
         .container { width: 100%; max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
         .app-header { background-color: var(--couleur-header); color: var(--couleur-texte-fonce); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
-        .logo-image { height: 50px; width: auto; }
+        
+        /* Style pour l'image du logo */
+        .logo-image {
+            height: 50px;
+            width: auto;
+            /* MODIFIÉ : Ajout de cette ligne pour arrondir les coins du logo */
+            border-radius: 10px;
+        }
+        
         .app-header .title { font-size: 1.2em; font-weight: bold; text-align: right; }
         .btn { display: inline-block; padding: 12px 24px; border: none; border-radius: 20px; font-size: 1em; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; transition: background-color 0.2s; min-width: 200px; }
         .btn-principal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); }
@@ -59,38 +71,26 @@
     </header>
 
     <div class="container">
-        <!-- ÉCRAN 1 : LISTE DES CONTRÔLES -->
+        <!-- Le reste du HTML et le Javascript sont inchangés -->
         <div id="screen-list-controles" class="screen active">
             <h2>Liste des contrôles</h2>
             <p class="sub-text">Double-cliquez sur 'Statut' ou 'Notes' pour modifier.</p>
-            
             <div class="flex-buttons">
                 <button id="btn-ajouter-controle" class="btn btn-principal">AJOUTER UN CONTRÔLE</button>
                 <button id="btn-modifier-controle" class="btn btn-principal" disabled>MODIFIER LE CONTRÔLE</button>
             </div>
-
             <div class="table-container mt-20">
-                <table id="controles-table">
-                    <thead><tr><th>Contrôle</th><th>Statut</th><th>Dernière modification</th><th>Notes</th></tr></thead>
-                    <tbody id="controles-table-body"></tbody>
-                </table>
+                <table id="controles-table"><thead><tr><th>Contrôle</th><th>Statut</th><th>Dernière modification</th><th>Notes</th></tr></thead><tbody id="controles-table-body"></tbody></table>
             </div>
-
-            <!-- MODIFIÉ : Section Import/Export simplifiée pour Excel uniquement -->
             <div class="mt-40 text-center">
                 <h3>Import / Export Excel</h3>
                 <p class="sub-text">Importez un fichier Excel pour commencer, ou exportez vos données actuelles.</p>
                 <div class="flex-buttons space-around">
-                    <label class="btn btn-retour">
-                        Importer depuis Excel
-                        <input type="file" id="input-import-excel" accept=".xlsx, .xls" style="display: none;">
-                    </label>
+                    <label class="btn btn-retour">Importer depuis Excel<input type="file" id="input-import-excel" accept=".xlsx, .xls" style="display: none;"></label>
                     <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
                 </div>
             </div>
         </div>
-
-        <!-- Le reste du HTML est inchangé -->
         <div id="screen-session-choice" class="screen">
             <h2 id="session-choice-title">Fichier : </h2>
             <p class="text-center mt-40">Choisissez une session de saisie :</p>
@@ -116,201 +116,150 @@
             <div class="text-center mt-40"><button id="btn-terminer-saisie" class="btn btn-valider">TERMINER ET RETOUR</button></div>
         </div>
     </div>
-
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // --- CONSTANTES ET ÉTAT GLOBAL (inchangé)
-        const FICHIER_PREFIXE = "controle-";
-        const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR'];
-        const METADATA_KEY = "seigla_controles_metadata";
-        const DATA_KEY = "seigla_controles_data";
-        let state = { activeFichier: null, activeSession: null, selectedRow: null };
-
-        // --- SÉLECTEURS DU DOM (mis à jour) ---
-        const screens = { list: document.getElementById('screen-list-controles'), sessionChoice: document.getElementById('screen-session-choice'), saisie: document.getElementById('screen-saisie') };
-        const btnAjouterControle = document.getElementById('btn-ajouter-controle');
-        const btnModifierControle = document.getElementById('btn-modifier-controle');
-        const btnRetourListe = document.getElementById('btn-retour-liste');
-        const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
-        const btnExportExcel = document.getElementById('btn-export-excel');
-        const inputImportExcel = document.getElementById('input-import-excel'); // NOUVEAU
-        const controlesTableBody = document.getElementById('controles-table-body');
-        const saisieForm = document.getElementById('saisie-form');
-
-        // --- GESTION DES DONNÉES (inchangé) ---
-        const loadMetadata = () => JSON.parse(localStorage.getItem(METADATA_KEY)) || {};
-        const saveMetadata = (data) => localStorage.setItem(METADATA_KEY, JSON.stringify(data));
-        const loadData = () => JSON.parse(localStorage.getItem(DATA_KEY)) || {};
-        const saveData = (data) => localStorage.setItem(DATA_KEY, JSON.stringify(data));
-
-        // --- LOGIQUE DE L'APPLICATION (le reste est majoritairement inchangé) ---
-        // ... (toutes les fonctions `showScreen`, `renderListeControles`, `handleRowClick`, `handleCellDoubleClick`, etc. restent ici) ...
-        const showScreen = (screenName) => { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); };
-        const renderListeControles = () => {
-            const metadata = loadMetadata(); const data = loadData(); const fichiers = Object.keys(data).sort().reverse();
-            controlesTableBody.innerHTML = ''; btnModifierControle.disabled = true;
-            if (state.selectedRow) state.selectedRow.classList.remove('selected'); state.selectedRow = null;
-            if (fichiers.length === 0) {
-                controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="4">Aucun contrôle trouvé. Importez un fichier Excel pour commencer.</td></tr>`;
-                btnExportExcel.disabled = true; return;
-            }
-            btnExportExcel.disabled = false;
-            fichiers.forEach(fichier => {
-                const meta = metadata[fichier] || { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
-                const dateModif = new Date(meta.lastModif).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-                const nomControle = fichier.replace(FICHIER_PREFIXE, "");
-                const row = document.createElement('tr'); row.dataset.fichier = fichier;
-                row.innerHTML = `<td>${nomControle}</td><td class="editable-cell" data-field="statut">${meta.statut}</td><td>${dateModif}</td><td class="editable-cell" data-field="notes">${meta.notes}</td>`;
-                controlesTableBody.appendChild(row);
-            });
-        };
-        const handleRowClick = (e) => {
-            const row = e.target.closest('tr'); if (!row || !row.dataset.fichier) return;
-            if (state.selectedRow) state.selectedRow.classList.remove('selected');
-            row.classList.add('selected'); state.selectedRow = row; state.activeFichier = row.dataset.fichier; btnModifierControle.disabled = false;
-        };
-        const handleCellDoubleClick = (e) => {
-            const cell = e.target.closest('.editable-cell'); if (!cell || cell.querySelector('input')) return;
-            const originalValue = cell.textContent; const field = cell.dataset.field; const fichier = cell.parentElement.dataset.fichier;
-            cell.innerHTML = `<input type="text" value="${originalValue}" />`; const input = cell.querySelector('input'); input.focus();
-            const saveChange = () => {
-                const newValue = input.value; cell.textContent = newValue; const metadata = loadMetadata();
-                metadata[fichier] = metadata[fichier] || {}; metadata[fichier][field] = newValue; metadata[fichier].lastModif = new Date().toISOString();
-                saveMetadata(metadata); renderListeControles();
-            };
-            input.addEventListener('blur', saveChange); input.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') input.blur(); if (evt.key === 'Escape') { cell.textContent = originalValue; input.removeEventListener('blur', saveChange); }});
-        };
-        btnAjouterControle.addEventListener('click', () => {
-            const now = new Date(); const month = (now.getMonth() + 1).toString().padStart(2, '0'); const year = now.getFullYear().toString().slice(-2);
-            const nomFichier = `${FICHIER_PREFIXE}${month}-${year}`; const data = loadData(); const metadata = loadMetadata();
-            if (!data[nomFichier]) {
-                data[nomFichier] = []; metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
-                saveData(data); saveMetadata(metadata);
-            }
-            state.activeFichier = nomFichier; showScreen('sessionChoice');
-            document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
-        });
-        btnModifierControle.addEventListener('click', () => { if (!state.activeFichier) return; showScreen('sessionChoice'); document.getElementById('session-choice-title').textContent = `Fichier : ${state.activeFichier.replace(FICHIER_PREFIXE, "")}`; });
-        document.querySelector('#screen-session-choice').addEventListener('click', (e) => {
-            if (e.target.classList.contains('session-btn')) {
-                state.activeSession = e.target.dataset.session;
-                document.getElementById('saisie-title').textContent = `Saisie pour la session : ${state.activeSession}`;
-                document.getElementById('label-pl').textContent = `PL (${state.activeSession})`;
-                saisieForm.reset(); document.getElementById('input-lot').focus(); document.getElementById('status-message').textContent = '';
-                showScreen('saisie');
-            }
-        });
-        btnRetourListe.addEventListener('click', () => { renderListeControles(); showScreen('list'); });
-        saisieForm.addEventListener('submit', (e) => {
-            e.preventDefault(); const lot = document.getElementById('input-lot').value.trim(); const snit_str = document.getElementById('input-snit').value.trim();
-            const normal_str = document.getElementById('input-normal').value.trim(); const pl_str = document.getElementById('input-pl').value.trim().replace(',', '.');
-            const statusMessage = document.getElementById('status-message');
-            if (!lot || !snit_str || !normal_str || !pl_str) { statusMessage.textContent = "Erreur: Tous les champs sont requis."; statusMessage.className = "error"; return; }
-            const snit = parseInt(snit_str), normal = parseInt(normal_str), pl = parseFloat(pl_str);
-            if (isNaN(snit) || isNaN(normal) || isNaN(pl)) { statusMessage.textContent = "Erreur: SNIT, NORMAL et PL doivent être des nombres."; statusMessage.className = "error"; return; }
-            const data = loadData(); const controleData = data[state.activeFichier];
-            let foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === snit && v.NORMAL === normal);
-            if (foundIndex === -1) { foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === normal && v.NORMAL === snit); }
-            if (foundIndex !== -1) {
-                controleData[foundIndex][state.activeSession] = pl; statusMessage.textContent = `OK. Vache ${snit}/${normal} mise à jour.`; statusMessage.className = "success";
-            } else {
-                const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal }; COLONNES_DATA.forEach(col => { if (!['LOT', 'SNIT', 'NORMAL'].includes(col)) nouvelleVache[col] = null; });
-                nouvelleVache[state.activeSession] = pl; controleData.push(nouvelleVache); statusMessage.textContent = `OK. Nouvelle vache ${snit}/${normal} ajoutée.`; statusMessage.className = "success";
-            }
-            saveData(data); const metadata = loadMetadata(); metadata[state.activeFichier].lastModif = new Date().toISOString(); saveMetadata(metadata);
-            ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = ''); document.getElementById('input-snit').focus();
-        });
-        const inputs = ['input-lot', 'input-snit', 'input-normal', 'input-pl'];
-        inputs.forEach((id, index) => {
-            const input = document.getElementById(id);
-            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (index < inputs.length - 1) { document.getElementById(inputs[index + 1]).focus(); } else { saisieForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); } } });
-        });
-        btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
-        
-        // --- LOGIQUE D'EXPORT EXCEL (inchangée) ---
-        const exportToExcel = () => {
-            const data = loadData(); const controles = Object.keys(data);
-            if (controles.length === 0) { alert("Aucune donnée à exporter."); return; }
-            const wb = XLSX.utils.book_new();
-            controles.forEach(nomControle => {
-                const sheetData = data[nomControle];
-                const orderedData = sheetData.map(row => {
-                    const newRow = {}; COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; });
-                    return newRow;
-                });
-                const ws = XLSX.utils.json_to_sheet(orderedData, { header: COLONNES_DATA });
-                const sheetName = nomControle.replace(FICHIER_PREFIXE, "");
-                XLSX.utils.book_append_sheet(wb, ws, sheetName);
-            });
-            XLSX.writeFile(wb, `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`);
-        };
-        btnExportExcel.addEventListener('click', exportToExcel);
-
-        // --- NOUVEAU : LOGIQUE D'IMPORT EXCEL ---
-        const handleExcelImport = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            if (!confirm("Attention : L'importation d'un fichier Excel remplacera toutes les données actuelles. Voulez-vous continuer ?")) {
-                // Réinitialise l'input pour pouvoir sélectionner le même fichier à nouveau
-                event.target.value = '';
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const data = e.target.result;
-                    // Lire le fichier Excel. `readAsArrayBuffer` est plus robuste.
-                    const workbook = XLSX.read(data, { type: 'array' });
-
-                    const newData = {};
-                    const newMetadata = {};
-
-                    // Parcourir chaque feuille (chaque onglet) du fichier Excel
-                    workbook.SheetNames.forEach(sheetName => {
-                        const worksheet = workbook.Sheets[sheetName];
-                        // Convertir la feuille en un tableau d'objets JSON
-                        const sheetData = XLSX.utils.sheet_to_json(worksheet);
-
-                        const nomFichierComplet = FICHIER_PREFIXE + sheetName;
-                        newData[nomFichierComplet] = sheetData;
-
-                        // Créer les métadonnées par défaut pour ce contrôle
-                        newMetadata[nomFichierComplet] = {
-                            statut: "Importé",
-                            notes: "",
-                            lastModif: new Date().toISOString()
-                        };
-                    });
-
-                    // Sauvegarder les nouvelles données et métadonnées
-                    saveData(newData);
-                    saveMetadata(newMetadata);
-
-                    // Mettre à jour l'affichage
-                    renderListeControles();
-                    alert("Importation depuis le fichier Excel réussie !");
-
-                } catch (error) {
-                    console.error("Erreur lors de l'importation du fichier Excel:", error);
-                    alert("Une erreur s'est produite. Assurez-vous que le fichier est un fichier Excel valide et non corrompu.");
-                } finally {
-                    // Réinitialise l'input
-                    event.target.value = '';
+        // Le Javascript reste identique à la version précédente
+        document.addEventListener('DOMContentLoaded', () => {
+            const FICHIER_PREFIXE = "controle-"; const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR'];
+            const METADATA_KEY = "seigla_controles_metadata"; const DATA_KEY = "seigla_controles_data";
+            let state = { activeFichier: null, activeSession: null, selectedRow: null };
+            const screens = { list: document.getElementById('screen-list-controles'), sessionChoice: document.getElementById('screen-session-choice'), saisie: document.getElementById('screen-saisie') };
+            const btnAjouterControle = document.getElementById('btn-ajouter-controle'); const btnModifierControle = document.getElementById('btn-modifier-controle');
+            const btnRetourListe = document.getElementById('btn-retour-liste'); const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
+            const btnExportExcel = document.getElementById('btn-export-excel'); const inputImportExcel = document.getElementById('input-import-excel');
+            const controlesTableBody = document.getElementById('controles-table-body'); const saisieForm = document.getElementById('saisie-form');
+            const loadMetadata = () => JSON.parse(localStorage.getItem(METADATA_KEY)) || {}; const saveMetadata = (data) => localStorage.setItem(METADATA_KEY, JSON.stringify(data));
+            const loadData = () => JSON.parse(localStorage.getItem(DATA_KEY)) || {}; const saveData = (data) => localStorage.setItem(DATA_KEY, JSON.stringify(data));
+            const showScreen = (screenName) => { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); };
+            const renderListeControles = () => {
+                const metadata = loadMetadata(); const data = loadData(); const fichiers = Object.keys(data).sort().reverse();
+                controlesTableBody.innerHTML = ''; btnModifierControle.disabled = true;
+                if (state.selectedRow) state.selectedRow.classList.remove('selected'); state.selectedRow = null;
+                if (fichiers.length === 0) {
+                    controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="4">Aucun contrôle trouvé. Importez un fichier Excel pour commencer.</td></tr>`;
+                    btnExportExcel.disabled = true; return;
                 }
+                btnExportExcel.disabled = false;
+                fichiers.forEach(fichier => {
+                    const meta = metadata[fichier] || { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                    const dateModif = new Date(meta.lastModif).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                    const nomControle = fichier.replace(FICHIER_PREFIXE, "");
+                    const row = document.createElement('tr'); row.dataset.fichier = fichier;
+                    row.innerHTML = `<td>${nomControle}</td><td class="editable-cell" data-field="statut">${meta.statut}</td><td>${dateModif}</td><td class="editable-cell" data-field="notes">${meta.notes}</td>`;
+                    controlesTableBody.appendChild(row);
+                });
             };
-            
-            // Lire le fichier comme un ArrayBuffer, ce qui est recommandé par SheetJS
-            reader.readAsArrayBuffer(file);
-        };
-        inputImportExcel.addEventListener('change', handleExcelImport);
-
-        // --- INITIALISATION ---
-        controlesTableBody.addEventListener('click', handleRowClick);
-        controlesTableBody.addEventListener('dblclick', handleCellDoubleClick);
-        renderListeControles();
-    });
+            const handleRowClick = (e) => {
+                const row = e.target.closest('tr'); if (!row || !row.dataset.fichier) return;
+                if (state.selectedRow) state.selectedRow.classList.remove('selected');
+                row.classList.add('selected'); state.selectedRow = row; state.activeFichier = row.dataset.fichier; btnModifierControle.disabled = false;
+            };
+            const handleCellDoubleClick = (e) => {
+                const cell = e.target.closest('.editable-cell'); if (!cell || cell.querySelector('input')) return;
+                const originalValue = cell.textContent; const field = cell.dataset.field; const fichier = cell.parentElement.dataset.fichier;
+                cell.innerHTML = `<input type="text" value="${originalValue}" />`; const input = cell.querySelector('input'); input.focus();
+                const saveChange = () => {
+                    const newValue = input.value; cell.textContent = newValue; const metadata = loadMetadata();
+                    metadata[fichier] = metadata[fichier] || {}; metadata[fichier][field] = newValue; metadata[fichier].lastModif = new Date().toISOString();
+                    saveMetadata(metadata); renderListeControles();
+                };
+                input.addEventListener('blur', saveChange); input.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') input.blur(); if (evt.key === 'Escape') { cell.textContent = originalValue; input.removeEventListener('blur', saveChange); }});
+            };
+            btnAjouterControle.addEventListener('click', () => {
+                const now = new Date(); const month = (now.getMonth() + 1).toString().padStart(2, '0'); const year = now.getFullYear().toString().slice(-2);
+                const nomFichier = `${FICHIER_PREFIXE}${month}-${year}`; const data = loadData(); const metadata = loadMetadata();
+                if (!data[nomFichier]) {
+                    data[nomFichier] = []; metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                    saveData(data); saveMetadata(metadata);
+                }
+                state.activeFichier = nomFichier; showScreen('sessionChoice');
+                document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
+            });
+            btnModifierControle.addEventListener('click', () => { if (!state.activeFichier) return; showScreen('sessionChoice'); document.getElementById('session-choice-title').textContent = `Fichier : ${state.activeFichier.replace(FICHIER_PREFIXE, "")}`; });
+            document.querySelector('#screen-session-choice').addEventListener('click', (e) => {
+                if (e.target.classList.contains('session-btn')) {
+                    state.activeSession = e.target.dataset.session;
+                    document.getElementById('saisie-title').textContent = `Saisie pour la session : ${state.activeSession}`;
+                    document.getElementById('label-pl').textContent = `PL (${state.activeSession})`;
+                    saisieForm.reset(); document.getElementById('input-lot').focus(); document.getElementById('status-message').textContent = '';
+                    showScreen('saisie');
+                }
+            });
+            btnRetourListe.addEventListener('click', () => { renderListeControles(); showScreen('list'); });
+            saisieForm.addEventListener('submit', (e) => {
+                e.preventDefault(); const lot = document.getElementById('input-lot').value.trim(); const snit_str = document.getElementById('input-snit').value.trim();
+                const normal_str = document.getElementById('input-normal').value.trim(); const pl_str = document.getElementById('input-pl').value.trim().replace(',', '.');
+                const statusMessage = document.getElementById('status-message');
+                if (!lot || !snit_str || !normal_str || !pl_str) { statusMessage.textContent = "Erreur: Tous les champs sont requis."; statusMessage.className = "error"; return; }
+                const snit = parseInt(snit_str), normal = parseInt(normal_str), pl = parseFloat(pl_str);
+                if (isNaN(snit) || isNaN(normal) || isNaN(pl)) { statusMessage.textContent = "Erreur: SNIT, NORMAL et PL doivent être des nombres."; statusMessage.className = "error"; return; }
+                const data = loadData(); const controleData = data[state.activeFichier];
+                let foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === snit && v.NORMAL === normal);
+                if (foundIndex === -1) { foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === normal && v.NORMAL === snit); }
+                if (foundIndex !== -1) {
+                    controleData[foundIndex][state.activeSession] = pl; statusMessage.textContent = `OK. Vache ${snit}/${normal} mise à jour.`; statusMessage.className = "success";
+                } else {
+                    const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal }; COLONNES_DATA.forEach(col => { if (!['LOT', 'SNIT', 'NORMAL'].includes(col)) nouvelleVache[col] = null; });
+                    nouvelleVache[state.activeSession] = pl; controleData.push(nouvelleVache); statusMessage.textContent = `OK. Nouvelle vache ${snit}/${normal} ajoutée.`; statusMessage.className = "success";
+                }
+                saveData(data); const metadata = loadMetadata(); metadata[state.activeFichier].lastModif = new Date().toISOString(); saveMetadata(metadata);
+                ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = ''); document.getElementById('input-snit').focus();
+            });
+            const inputs = ['input-lot', 'input-snit', 'input-normal', 'input-pl'];
+            inputs.forEach((id, index) => {
+                const input = document.getElementById(id);
+                input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (index < inputs.length - 1) { document.getElementById(inputs[index + 1]).focus(); } else { saisieForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); } } });
+            });
+            btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
+            const exportToExcel = () => {
+                const data = loadData(); const controles = Object.keys(data);
+                if (controles.length === 0) { alert("Aucune donnée à exporter."); return; }
+                const wb = XLSX.utils.book_new();
+                controles.forEach(nomControle => {
+                    const sheetData = data[nomControle];
+                    const orderedData = sheetData.map(row => {
+                        const newRow = {}; COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; });
+                        return newRow;
+                    });
+                    const ws = XLSX.utils.json_to_sheet(orderedData, { header: COLONNES_DATA });
+                    const sheetName = nomControle.replace(FICHIER_PREFIXE, "");
+                    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+                });
+                XLSX.writeFile(wb, `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`);
+            };
+            btnExportExcel.addEventListener('click', exportToExcel);
+            const handleExcelImport = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                if (!confirm("Attention : L'importation d'un fichier Excel remplacera toutes les données actuelles. Voulez-vous continuer ?")) {
+                    event.target.value = ''; return;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = e.target.result;
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const newData = {}; const newMetadata = {};
+                        workbook.SheetNames.forEach(sheetName => {
+                            const worksheet = workbook.Sheets[sheetName];
+                            const sheetData = XLSX.utils.sheet_to_json(worksheet);
+                            const nomFichierComplet = FICHIER_PREFIXE + sheetName;
+                            newData[nomFichierComplet] = sheetData;
+                            newMetadata[nomFichierComplet] = { statut: "Importé", notes: "", lastModif: new Date().toISOString() };
+                        });
+                        saveData(newData); saveMetadata(newMetadata);
+                        renderListeControles(); alert("Importation depuis le fichier Excel réussie !");
+                    } catch (error) {
+                        console.error("Erreur lors de l'importation du fichier Excel:", error);
+                        alert("Une erreur s'est produite. Assurez-vous que le fichier est un fichier Excel valide et non corrompu.");
+                    } finally { event.target.value = ''; }
+                };
+                reader.readAsArrayBuffer(file);
+            };
+            inputImportExcel.addEventListener('change', handleExcelImport);
+            controlesTableBody.addEventListener('click', handleRowClick);
+            controlesTableBody.addEventListener('dblclick', handleCellDoubleClick);
+            renderListeControles();
+        });
     </script>
 </body>
 </html>
