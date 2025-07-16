@@ -6,15 +6,60 @@
     <title>Gestion de Contrôle - SEIGLA (Partagé)</title>
     <link rel="icon" href="icon.png" type="image/png">
     
-    <!-- AJOUT: SDK Firebase -->
+    <!-- SDK Firebase v8 (plus simple pour un seul fichier HTML) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
+    <!-- Bibliothèque pour Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>/* ... Styles inchangés ... */</style>
+    
+    <style>
+        :root {
+            --couleur-header: #f0a500; --couleur-bouton-principal: #f0a500;
+            --couleur-bouton-hover: #ffbf00; --couleur-bouton-retour: #6d4c41;
+            --couleur-bouton-retour-hover: #8d6e63; --couleur-bouton-valider: #28a745;
+            --couleur-bouton-valider-hover: #218838; --couleur-texte-clair: white;
+            --couleur-texte-fonce: black; --couleur-fond: white; --couleur-bordure: #ddd;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: var(--couleur-fond); color: var(--couleur-texte-fonce); display: flex; flex-direction: column; min-height: 100vh; }
+        .container { width: 100%; max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
+        .app-header { background-color: var(--couleur-header); color: var(--couleur-texte-fonce); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+        .logo-image { height: 50px; width: auto; border-radius: 10px; }
+        .app-header .title-container { text-align: right; }
+        .app-header .title { font-size: 1.2em; font-weight: bold; }
+        .app-header .user-info { font-size: 0.9em; cursor: pointer; color: #555; margin-top: 4px; }
+        .btn { display: inline-block; padding: 12px 24px; border: none; border-radius: 20px; font-size: 1em; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; transition: background-color 0.2s; min-width: 200px; }
+        .btn-principal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); } .btn-principal:hover { background-color: var(--couleur-bouton-hover); }
+        .btn-retour { background-color: var(--couleur-bouton-retour); color: var(--couleur-texte-clair); } .btn-retour:hover { background-color: var(--couleur-bouton-retour-hover); }
+        .btn-valider { background-color: var(--couleur-bouton-valider); color: var(--couleur-texte-clair); } .btn-valider:hover { background-color: var(--couleur-bouton-valider-hover); }
+        .btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
+        .screen { display: none; } .screen.active { display: block; }
+        h2 { margin-top: 0; }
+        #screen-login { max-width: 400px; margin: 80px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #login-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        #login-error { color: red; text-align: center; margin-bottom: 15px; height: 20px; }
+        #screen-list-controles .table-container { overflow-x: auto; }
+        #controles-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        #controles-table th, #controles-table td { padding: 12px 15px; border: 1px solid var(--couleur-bordure); text-align: left; }
+        #controles-table th { background-color: #f2f2f2; font-weight: bold; }
+        #controles-table tr:hover { background-color: #f5f5f5; }
+        #controles-table tr.selected { background-color: #fff3cd; }
+        #controles-table .editable-cell:hover { background-color: #e8f4fd; cursor: pointer; }
+        #controles-table .editable-cell input { width: 95%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        #controles-table .empty-row td { text-align: center; color: #888; padding: 30px; }
+        #screen-saisie .form-grid { display: grid; grid-template-columns: 150px 1fr; gap: 15px; align-items: center; max-width: 500px; margin: 20px auto; }
+        #screen-saisie .form-grid label { font-weight: bold; padding: 10px; border-radius: 20px; text-align: center; }
+        #screen-saisie .form-grid .label-lot, #screen-saisie .form-grid .label-snit, #screen-saisie .form-grid .label-normal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); }
+        #screen-saisie .form-grid .label-pl { background-color: var(--couleur-bouton-retour); color: var(--couleur-texte-clair); }
+        #screen-saisie .form-grid input { padding: 10px; font-size: 1em; border: 1px solid var(--couleur-bordure); border-radius: 5px; width: 100%; box-sizing: border-box; }
+        #status-message { text-align: center; margin-top: 15px; font-weight: bold; height: 20px; }
+        #status-message.success { color: green; } #status-message.error { color: red; }
+        .text-center { text-align: center; } .mt-20 { margin-top: 20px; } .mt-40 { margin-top: 40px; }
+        .space-around { justify-content: space-around; } .flex-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .sub-text { color: #666; font-size: 0.9em; }
+    </style>
 </head>
 <body>
-    <!-- Le HTML est identique à la version "Connexion", pas de changements ici -->
     <header class="app-header" style="display: none;">
         <img src="logo.png" alt="Logo SEIGLA" class="logo-image">
         <div class="title-container">
@@ -49,108 +94,261 @@
                     <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
                 </div>
             </div>
-            <!-- ... autres écrans ... -->
+            <div id="screen-session-choice" class="screen">
+                <h2 id="session-choice-title">Fichier : </h2>
+                <p class="text-center mt-40">Choisissez une session de saisie :</p>
+                <div class="flex-buttons space-around mt-20"><button class="btn btn-principal session-btn" data-session="MATIN">MATIN</button><button class="btn btn-principal session-btn" data-session="MIDI">MIDI</button><button class="btn btn-principal session-btn" data-session="SOIR">SOIR</button></div>
+                <div class="text-center mt-40"><button id="btn-retour-liste" class="btn btn-retour">Retour au menu</button></div>
+            </div>
+            <div id="screen-saisie" class="screen">
+                <h2 id="saisie-title" class="text-center">Saisie pour la session : </h2>
+                <form id="saisie-form" class="mt-40">
+                    <div class="form-grid"><label class="label-lot">LOT</label><input type="text" id="input-lot" required><label class="label-snit">SNIT</label><input type="number" id="input-snit" required><label class="label-normal">NORMAL</label><input type="number" id="input-normal" required><label id="label-pl" class="label-pl">PL (...) </label><input type="text" id="input-pl" required pattern="[0-9]+([,\.][0-9]+)?" title="Entrez un nombre (ex: 15.5 ou 15,5)"></div>
+                    <div class="text-center mt-20"><button type="submit" class="btn btn-principal">Ajouter / Mettre à jour</button></div>
+                </form>
+                <div id="status-message"></div>
+                <div class="text-center mt-40"><button id="btn-terminer-saisie" class="btn btn-valider">TERMINER ET RETOUR</button></div>
+            </div>
         </div>
     </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- MODIFIÉ : Configuration Firebase ---
-        // ⚠️ COLLEZ VOTRE CONFIGURATION FIREBASE ICI ⚠️
+        // --- Configuration Firebase avec vos clés ---
         const firebaseConfig = {
-            apiKey: "AIza...",
-            authDomain: "VOTRE-PROJET.firebaseapp.com",
-            databaseURL: "https://VOTRE-PROJET-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "VOTRE-PROJET",
-            storageBucket: "VOTRE-PROJET.appspot.com",
-            messagingSenderId: "...",
-            appId: "1:..."
+          apiKey: "AIzaSyB9sMSw9PfywxIe9RLmonk9fjxYcxK4l7w",
+          authDomain: "seigla-gestion-controle.firebaseapp.com",
+          databaseURL: "https://seigla-gestion-controle-default-rtdb.firebaseio.com",
+          projectId: "seigla-gestion-controle",
+          storageBucket: "seigla-gestion-controle.appspot.com",
+          messagingSenderId: "10300505900",
+          appId: "1:10300505900:web:fae4e4788e14e8bf06b689",
+          measurementId: "G-0J7ZHCK2SX"
         };
+        // ---------------------------------------------
 
-        // Initialiser Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
 
-        // --- AUTHENTIFICATION (inchangée) ---
+        // ⚠️ Mots de passe en clair : uniquement pour un prototype, non sécurisé pour la production
         const users = { "admin": "password123", "user1": "seigla2024", "ahmed": "azerty" };
-        const CURRENT_USER_KEY = "seigla_current_user"; // Gardé dans localStorage, c'est une préférence locale
+        const CURRENT_USER_KEY = "seigla_current_user";
 
-        // --- SÉLECTEURS DU DOM (inchangés) ---
-        // ...
+        const loginScreen = document.getElementById('screen-login');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const appHeader = document.querySelector('.app-header');
+        const appContent = document.getElementById('app-content');
+        const userInfo = document.getElementById('user-info');
+        const screens = { list: document.getElementById('screen-list-controles'), sessionChoice: document.getElementById('screen-session-choice'), saisie: document.getElementById('screen-saisie') };
+        const btnAjouterControle = document.getElementById('btn-ajouter-controle');
+        const btnModifierControle = document.getElementById('btn-modifier-controle');
+        const btnRetourListe = document.getElementById('btn-retour-liste');
+        const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
+        const btnExportExcel = document.getElementById('btn-export-excel');
+        const controlesTableBody = document.getElementById('controles-table-body');
+        const saisieForm = document.getElementById('saisie-form');
 
-        // --- GESTION DES DONNÉES (TOTALEMENT MODIFIÉE) ---
         const FICHIER_PREFIXE = "controle-";
         const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR', 'Modifications'];
         let state = { activeFichier: null, activeSession: null, selectedRow: null };
-        let globalData = {}; // Variable locale pour garder une copie des données
+        let globalData = {};
 
-        // Écouter les changements dans la base de données en temps réel
         const dbRef = database.ref('/');
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
-            if (data) {
-                globalData = data;
-            } else {
-                globalData = { metadata: {}, data: {} }; // Initialiser si la DB est vide
-            }
-            // Si l'utilisateur est connecté, on rafraîchit son écran
+            globalData = data ? data : { metadata: {}, data: {} };
             if (localStorage.getItem(CURRENT_USER_KEY)) {
-                renderListeControles();
+                const currentScreen = document.querySelector('.screen.active');
+                // Rafraichir uniquement la liste pour ne pas perturber la saisie
+                if (!currentScreen || currentScreen.id === 'screen-list-controles') {
+                    renderListeControles();
+                }
             }
-            console.log("Données reçues de Firebase !");
+            console.log("Données synchronisées avec Firebase.");
         });
 
-        // Fonction pour sauvegarder les données dans Firebase
         const saveDataToFirebase = (data) => {
-            database.ref('/').set(data)
-                .catch(error => console.error("Erreur de sauvegarde Firebase:", error));
+            database.ref('/').set(data).catch(error => console.error("Erreur de sauvegarde Firebase:", error));
         };
-        
-        // --- LOGIQUE DE L'APPLICATION (adaptée pour utiliser globalData) ---
+
+        const handleLogin = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value.trim();
+            const mdp = document.getElementById('login-mdp').value;
+            if (users[id] && users[id] === mdp) {
+                localStorage.setItem(CURRENT_USER_KEY, id);
+                showApp(id);
+            } else {
+                loginError.textContent = "Identifiant ou mot de passe incorrect.";
+            }
+        };
+
+        const showApp = (userId) => {
+            loginScreen.style.display = 'none';
+            appContent.style.display = 'block';
+            appHeader.style.display = 'flex';
+            userInfo.textContent = `Connecté : ${userId} (Déconnexion)`;
+            showScreen('list');
+            renderListeControles();
+        };
+
+        const handleLogout = () => {
+            if (confirm("Voulez-vous vous déconnecter ?")) {
+                localStorage.removeItem(CURRENT_USER_KEY);
+                location.reload();
+            }
+        };
+
+        const checkLogin = () => {
+            const loggedInUser = localStorage.getItem(CURRENT_USER_KEY);
+            if (loggedInUser && users[loggedInUser]) {
+                showApp(loggedInUser);
+            } else {
+                loginScreen.classList.add('active');
+            }
+        };
+
+        const showScreen = (screenName) => { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); };
         
         const renderListeControles = () => {
             const metadata = globalData.metadata || {};
             const data = globalData.data || {};
             const fichiers = Object.keys(data).sort().reverse();
-            // ... le reste de la fonction render est identique, elle utilise juste les variables `metadata` et `data` locales.
+            controlesTableBody.innerHTML = '';
+            btnModifierControle.disabled = true;
+            if (state.selectedRow) state.selectedRow.classList.remove('selected');
+            state.selectedRow = null;
+            if (fichiers.length === 0) {
+                controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="4">Aucun contrôle. Cliquez sur "AJOUTER UN CONTRÔLE" pour commencer.</td></tr>`;
+                btnExportExcel.disabled = true; return;
+            }
+            btnExportExcel.disabled = false;
+            fichiers.forEach(fichier => {
+                const meta = metadata[fichier] || { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                const dateModif = new Date(meta.lastModif).toLocaleString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                const nomControle = fichier.replace(FICHIER_PREFIXE, "");
+                const row = document.createElement('tr'); row.dataset.fichier = fichier;
+                row.innerHTML = `<td>${nomControle}</td><td class="editable-cell" data-field="statut">${meta.statut}</td><td>${dateModif}</td><td class="editable-cell" data-field="notes">${meta.notes}</td>`;
+                controlesTableBody.appendChild(row);
+            });
         };
 
-        const handleCellDoubleClick = (e) => {
-            // ... logique inchangée jusqu'à la sauvegarde
-            // Sauvegarde dans Firebase
-            globalData.metadata[fichier] = globalData.metadata[fichier] || {};
-            globalData.metadata[fichier][field] = newValue;
-            globalData.metadata[fichier].lastModif = new Date().toISOString();
-            saveDataToFirebase(globalData);
+        const handleRowClick = (e) => {
+            const row = e.target.closest('tr'); if (!row || !row.dataset.fichier) return;
+            if (state.selectedRow) state.selectedRow.classList.remove('selected');
+            row.classList.add('selected'); state.selectedRow = row; state.activeFichier = row.dataset.fichier; btnModifierControle.disabled = false;
         };
         
-        saisieForm.addEventListener('submit', (e) => {
-            // ... logique inchangée jusqu'à la sauvegarde
-            const currentUser = localStorage.getItem(CURRENT_USER_KEY);
-            const modificationRecord = `${currentUser} le ${new Date().toLocaleString('fr-FR')}`;
+        const handleCellDoubleClick = (e) => {
+            const cell = e.target.closest('.editable-cell'); if (!cell || cell.querySelector('input')) return;
+            const originalValue = cell.textContent; const field = cell.dataset.field; const fichier = cell.parentElement.dataset.fichier;
+            cell.innerHTML = `<input type="text" value="${originalValue}" />`; const input = cell.querySelector('input'); input.focus();
+            const saveChange = () => {
+                const newValue = input.value;
+                globalData.metadata[fichier] = globalData.metadata[fichier] || {};
+                globalData.metadata[fichier][field] = newValue;
+                globalData.metadata[fichier].lastModif = new Date().toISOString();
+                saveDataToFirebase(globalData);
+            };
+            input.addEventListener('blur', saveChange); input.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') input.blur(); if (evt.key === 'Escape') { renderListeControles(); }});
+        };
 
-            // On modifie l'objet `globalData`
-            // ...
-            
-            // Et on sauvegarde tout l'objet `globalData` dans Firebase
-            globalData.metadata[state.activeFichier].lastModif = new Date().toISOString();
-            saveDataToFirebase(globalData);
-            
-            // ... réinitialisation des champs ...
+        btnAjouterControle.addEventListener('click', () => {
+            const now = new Date(); const month = (now.getMonth() + 1).toString().padStart(2, '0'); const year = now.getFullYear().toString().slice(-2);
+            const nomFichier = `${FICHIER_PREFIXE}${month}-${year}`;
+            globalData.data = globalData.data || {};
+            globalData.metadata = globalData.metadata || {};
+            if (!globalData.data[nomFichier]) {
+                globalData.data[nomFichier] = [];
+                globalData.metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString() };
+                saveDataToFirebase(globalData);
+            }
+            state.activeFichier = nomFichier; showScreen('sessionChoice');
+            document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
         });
 
-        // Les fonctions de connexion, déconnexion, etc. restent les mêmes.
-        // Elles ne touchent qu'au localStorage local de l'utilisateur.
-
-        // --- INITIALISATION ---
-        // checkLogin() va maintenant attendre que les données initiales de Firebase soient chargées
-        // pour éviter d'afficher une liste vide pendant une fraction de seconde.
-        // La logique de 'onValue' s'en charge.
+        btnModifierControle.addEventListener('click', () => { if (!state.activeFichier) return; showScreen('sessionChoice'); document.getElementById('session-choice-title').textContent = `Fichier : ${state.activeFichier.replace(FICHIER_PREFIXE, "")}`; });
         
-        // ... (collez ici le reste du code JavaScript de la version précédente)
-        // (handleLogin, showApp, handleLogout, checkLogin, exportToExcel, etc.)
-        // La seule chose qui change est que les fonctions qui modifient les données
-        // doivent appeler `saveDataToFirebase(globalData)` à la fin.
+        document.querySelector('#screen-session-choice').addEventListener('click', (e) => {
+            if (e.target.classList.contains('session-btn')) {
+                state.activeSession = e.target.dataset.session;
+                document.getElementById('saisie-title').textContent = `Saisie pour la session : ${state.activeSession}`;
+                document.getElementById('label-pl').textContent = `PL (${state.activeSession})`;
+                saisieForm.reset(); document.getElementById('input-lot').focus(); document.getElementById('status-message').textContent = '';
+                showScreen('saisie');
+            }
+        });
+
+        btnRetourListe.addEventListener('click', () => { renderListeControles(); showScreen('list'); });
+
+        saisieForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const lot = document.getElementById('input-lot').value.trim();
+            const snit_str = document.getElementById('input-snit').value.trim();
+            const normal_str = document.getElementById('input-normal').value.trim();
+            const pl_str = document.getElementById('input-pl').value.trim().replace(',', '.');
+            const statusMessage = document.getElementById('status-message');
+            if (!lot || !snit_str || !normal_str || !pl_str) { statusMessage.textContent = "Erreur: Tous les champs sont requis."; statusMessage.className = "error"; return; }
+            const snit = parseInt(snit_str), normal = parseInt(normal_str), pl = parseFloat(pl_str);
+            if (isNaN(snit) || isNaN(normal) || isNaN(pl)) { statusMessage.textContent = "Erreur: SNIT, NORMAL et PL doivent être des nombres."; statusMessage.className = "error"; return; }
+            
+            const currentUser = localStorage.getItem(CURRENT_USER_KEY);
+            const modificationRecord = `${currentUser} le ${new Date().toLocaleString('fr-FR')}`;
+            const controleData = globalData.data[state.activeFichier] || [];
+            
+            let foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === snit && v.NORMAL === normal);
+            if (foundIndex === -1) { foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === normal && v.NORMAL === snit); }
+
+            if (foundIndex !== -1) {
+                const vache = controleData[foundIndex];
+                vache[state.activeSession] = pl;
+                vache.Modifications = vache.Modifications ? `${vache.Modifications}; ${modificationRecord}` : modificationRecord;
+                statusMessage.textContent = `OK. Vache ${snit}/${normal} mise à jour.`; statusMessage.className = "success";
+            } else {
+                const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal, Modifications: modificationRecord };
+                nouvelleVache[state.activeSession] = pl;
+                controleData.push(nouvelleVache);
+                statusMessage.textContent = `OK. Nouvelle vache ${snit}/${normal} ajoutée.`; statusMessage.className = "success";
+            }
+
+            globalData.data[state.activeFichier] = controleData;
+            globalData.metadata[state.activeFichier].lastModif = new Date().toISOString();
+            saveDataToFirebase(globalData);
+
+            ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = '');
+            document.getElementById('input-snit').focus();
+        });
+
+        const inputs = ['input-lot', 'input-snit', 'input-normal', 'input-pl'];
+        inputs.forEach((id, index) => {
+            const input = document.getElementById(id);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); if (index < inputs.length - 1) { document.getElementById(inputs[index + 1]).focus(); } else { saisieForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); } } });
+        });
+
+        btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
+        
+        const exportToExcel = () => {
+            const data = globalData.data; const controles = Object.keys(data);
+            if (controles.length === 0) { alert("Aucune donnée à exporter."); return; }
+            const wb = XLSX.utils.book_new();
+            controles.forEach(nomControle => {
+                const sheetData = data[nomControle] || [];
+                const orderedData = sheetData.map(row => {
+                    const newRow = {}; COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; });
+                    return newRow;
+                });
+                const ws = XLSX.utils.json_to_sheet(orderedData, { header: COLONNES_DATA });
+                const sheetName = nomControle.replace(FICHIER_PREFIXE, "");
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+            XLSX.writeFile(wb, `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`);
+        };
+        btnExportExcel.addEventListener('click', exportToExcel);
+
+        loginForm.addEventListener('submit', handleLogin);
+        userInfo.addEventListener('click', handleLogout);
+        checkLogin();
     });
     </script>
 </body>
