@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion de Contrôle - SEIGLA (Partagé)</title>
+    <title>Gestion de Contrôle - SEIGLA (Mode Local)</title>
     <link rel="icon" href="icon.png" type="image/png">
     
-    <!-- SDKs requis -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <!-- SDKs requis (Firebase et Crypto-JS ont été retirés) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     
     <style>
         :root {
@@ -26,7 +23,7 @@
         .logo-image { height: 50px; width: auto; border-radius: 10px; }
         .app-header .title-container { text-align: right; }
         .app-header .title { font-size: 1.2em; font-weight: bold; }
-        .app-header .user-info { font-size: 0.9em; cursor: pointer; color: #555; margin-top: 4px; }
+        .app-header .user-info { font-size: 0.9em; color: #555; margin-top: 4px; }
         .btn { display: inline-block; padding: 12px 24px; border: none; border-radius: 20px; font-size: 1em; font-weight: bold; cursor: pointer; text-align: center; text-decoration: none; transition: background-color 0.2s; min-width: 200px; }
         .btn-principal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); } .btn-principal:hover { background-color: var(--couleur-bouton-hover); }
         .btn-retour { background-color: var(--couleur-bouton-retour); color: var(--couleur-texte-clair); } .btn-retour:hover { background-color: var(--couleur-bouton-retour-hover); }
@@ -34,9 +31,6 @@
         .btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
         .screen { display: none; } .screen.active { display: block; }
         h2 { margin-top: 0; }
-        #screen-login { max-width: 400px; margin: 80px auto; padding: 30px; border: 1px solid #ddd; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        #login-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        #login-error { color: red; text-align: center; margin-bottom: 15px; height: 20px; }
         #screen-list-controles .table-container { overflow-x: auto; }
         #controles-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         #controles-table th, #controles-table td { padding: 12px 15px; border: 1px solid var(--couleur-bordure); text-align: left; }
@@ -59,25 +53,17 @@
     </style>
 </head>
 <body>
-    <header class="app-header" style="display: none;">
+    <header class="app-header">
         <img src="logo.png" alt="Logo SEIGLA" class="logo-image">
         <div class="title-container">
             <div class="title">GESTION DE CONTRÔLE</div>
-            <div class="user-info" id="user-info"></div>
+            <div class="user-info" id="user-info">Mode Local</div>
         </div>
     </header>
     <div class="container">
-        <div id="screen-login" class="screen active">
-            <h2 class="text-center">Connexion</h2>
-            <form id="login-form">
-                <input type="text" id="login-id" placeholder="Identifiant" required>
-                <input type="password" id="login-mdp" placeholder="Mot de passe" required>
-                <div id="login-error"></div>
-                <button type="submit" class="btn btn-principal" style="width: 100%;">Se connecter</button>
-            </form>
-        </div>
-        <div id="app-content" style="display: none;">
-            <div id="screen-list-controles" class="screen">
+        <!-- L'écran de connexion a été supprimé -->
+        <div id="app-content">
+            <div id="screen-list-controles" class="screen active"> <!-- Cet écran est maintenant actif par défaut -->
                 <h2>Liste des contrôles</h2>
                 <p class="sub-text">Double-cliquez sur 'Statut' ou 'Notes' pour modifier.</p>
                 <div class="flex-buttons">
@@ -92,7 +78,7 @@
                 </div>
                 <div class="mt-40 text-center">
                     <h3>Export Excel</h3>
-                    <p class="sub-text">Exportez toutes les données partagées vers un fichier Excel.</p>
+                    <p class="sub-text">Exportez toutes les données locales vers un fichier Excel.</p>
                     <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
                 </div>
             </div>
@@ -103,31 +89,40 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        const firebaseConfig = {
-          apiKey: "AIzaSyB9sMSw9PfywxIe9RLmonk9fjxYcxK4l7w",
-          authDomain: "seigla-gestion-controle.firebaseapp.com",
-          databaseURL: "https://seigla-gestion-controle-default-rtdb.firebaseio.com",
-          projectId: "seigla-gestion-controle",
-          storageBucket: "seigla-gestion-controle.appspot.com",
-          messagingSenderId: "10300505900",
-          appId: "1:10300505900:web:fae4e4788e14e8bf06b689"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        // --- NOUVELLE GESTION DES DONNÉES AVEC LOCALSTORAGE ---
+        const LOCAL_STORAGE_KEY = "seigla_data_v1";
+        const CURRENT_USER = "Utilisateur Local"; // Utilisateur fixe
 
-        const users = { 
-            "amine": "c87702dc755a9b244d8b567d263920b72782f132e01a6b4430191599a815949f",
-            "mohamed": "717a6a75f0426c19a9762145398270597959950780218731173694f4f7835154",
-            "aziz": "471d79a29631737e8c33a908922e96492b450508548c26359f63566113835639"
+        // Fonction pour charger les données depuis le localStorage
+        const loadDataFromLocalStorage = () => {
+            const dataJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (dataJSON) {
+                try {
+                    return JSON.parse(dataJSON);
+                } catch (e) {
+                    console.error("Erreur de parsing des données locales:", e);
+                    // En cas d'erreur, on retourne un objet vide pour ne pas planter l'app
+                    return { metadata: {}, data: {} };
+                }
+            }
+            // Si aucune donnée n'existe, on retourne un objet vide
+            return { metadata: {}, data: {} };
         };
-        const CURRENT_USER_KEY = "seigla_current_user";
 
-        const loginScreen = document.getElementById('screen-login');
-        const loginForm = document.getElementById('login-form');
-        const loginError = document.getElementById('login-error');
+        // Fonction pour sauvegarder les données dans le localStorage
+        const saveDataToLocalStorage = (data) => {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+            } catch (e) {
+                console.error("Erreur de sauvegarde des données locales:", e);
+                alert("Erreur: Impossible de sauvegarder les données. Le stockage local est peut-être plein.");
+            }
+        };
+
+        // --- Le reste de l'application utilise ces nouvelles fonctions ---
+
         const appHeader = document.querySelector('.app-header');
         const appContent = document.getElementById('app-content');
-        const userInfo = document.getElementById('user-info');
         const screens = { list: document.getElementById('screen-list-controles'), sessionChoice: document.getElementById('screen-session-choice'), saisie: document.getElementById('screen-saisie') };
         const btnAjouterControle = document.getElementById('btn-ajouter-controle');
         const btnModifierControle = document.getElementById('btn-modifier-controle');
@@ -140,52 +135,8 @@
         const FICHIER_PREFIXE = "controle-";
         const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR', 'Editeur', 'Historique_Modifs'];
         let state = { activeFichier: null, activeSession: null, selectedRow: null };
-        let globalData = {};
+        let globalData = loadDataFromLocalStorage(); // Chargement initial des données
 
-        const dbRef = database.ref('/');
-        dbRef.on('value', (snapshot) => {
-            const data = snapshot.val();
-            globalData = data ? data : { metadata: {}, data: {} };
-            if (localStorage.getItem(CURRENT_USER_KEY)) {
-                renderListeControles();
-            }
-        });
-
-        const saveDataToFirebase = (data) => {
-            database.ref('/').set(data).catch(error => console.error("Erreur de sauvegarde Firebase:", error));
-        };
-
-        const handleLogin = (e) => {
-            e.preventDefault();
-            const id = document.getElementById('login-id').value.trim();
-            const mdp = document.getElementById('login-mdp').value;
-            loginError.textContent = "";
-
-            const storedHash = users[id];
-            if (!storedHash) {
-                loginError.textContent = "Identifiant incorrect.";
-                return;
-            }
-
-            const enteredHash = CryptoJS.SHA256(mdp).toString();
-            if (enteredHash === storedHash) {
-                localStorage.setItem(CURRENT_USER_KEY, id);
-                showApp(id);
-            } else {
-                loginError.textContent = "Mot de passe incorrect.";
-            }
-        };
-
-        const showApp = (userId) => {
-            loginScreen.style.display = 'none';
-            appContent.style.display = 'block';
-            appHeader.style.display = 'flex';
-            userInfo.textContent = `Connecté : ${userId} (Déconnexion)`;
-            showScreen('list');
-        };
-
-        const handleLogout = () => { if (confirm("Voulez-vous vous déconnecter ?")) { localStorage.removeItem(CURRENT_USER_KEY); location.reload(); }};
-        const checkLogin = () => { const loggedInUser = localStorage.getItem(CURRENT_USER_KEY); if (loggedInUser && users[loggedInUser]) { showApp(loggedInUser); } else { loginScreen.classList.add('active'); }};
         const showScreen = (screenName) => { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); };
         
         const renderListeControles = () => {
@@ -208,6 +159,10 @@
                 const row = document.createElement('tr'); row.dataset.fichier = fichier;
                 row.innerHTML = `<td>${nomControle}</td><td class="editable-cell" data-field="statut">${meta.statut}</td><td>${dateModif}</td><td class="editable-cell" data-field="notes">${meta.notes}</td><td>${meta.editor || 'N/A'}</td>`;
                 controlesTableBody.appendChild(row);
+                
+                // Attacher les écouteurs d'événements ici
+                row.addEventListener('click', handleRowClick);
+                row.querySelectorAll('.editable-cell').forEach(cell => cell.addEventListener('dblclick', handleCellDoubleClick));
             });
         };
 
@@ -226,8 +181,9 @@
                 globalData.metadata[fichier] = globalData.metadata[fichier] || {};
                 globalData.metadata[fichier][field] = newValue;
                 globalData.metadata[fichier].lastModif = new Date().toISOString();
-                globalData.metadata[fichier].editor = localStorage.getItem(CURRENT_USER_KEY);
-                saveDataToFirebase(globalData);
+                globalData.metadata[fichier].editor = CURRENT_USER;
+                saveDataToLocalStorage(globalData); // Sauvegarde locale
+                renderListeControles(); // Re-render pour remettre la cellule en mode normal
             };
             input.addEventListener('blur', saveChange); input.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') input.blur(); if (evt.key === 'Escape') { renderListeControles(); }});
         };
@@ -239,8 +195,9 @@
             globalData.metadata = globalData.metadata || {};
             if (!globalData.data[nomFichier]) {
                 globalData.data[nomFichier] = [];
-                globalData.metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString(), editor: localStorage.getItem(CURRENT_USER_KEY) };
-                saveDataToFirebase(globalData);
+                globalData.metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString(), editor: CURRENT_USER };
+                saveDataToLocalStorage(globalData); // Sauvegarde locale
+                renderListeControles(); // Mettre à jour la liste
             }
             state.activeFichier = nomFichier; showScreen('sessionChoice');
             document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
@@ -263,8 +220,7 @@
             const snit = parseInt(snit_str), normal = parseInt(normal_str), pl = parseFloat(pl_str);
             if (isNaN(snit) || isNaN(normal) || isNaN(pl)) { statusMessage.textContent = "Erreur: SNIT, NORMAL et PL doivent être des nombres."; statusMessage.className = "error"; return; }
             
-            const currentUser = localStorage.getItem(CURRENT_USER_KEY);
-            const modificationRecord = `${currentUser} le ${new Date().toLocaleString('fr-FR')}`;
+            const modificationRecord = `${CURRENT_USER} le ${new Date().toLocaleString('fr-FR')}`;
             const controleData = globalData.data[state.activeFichier] || [];
             
             let foundIndex = controleData.findIndex(v => v.LOT === lot && v.SNIT === snit && v.NORMAL === normal);
@@ -273,11 +229,11 @@
             if (foundIndex !== -1) {
                 const vache = controleData[foundIndex];
                 vache[state.activeSession] = pl;
-                vache.Editeur = currentUser;
+                vache.Editeur = CURRENT_USER;
                 vache.Historique_Modifs = vache.Historique_Modifs ? `${vache.Historique_Modifs}; ${modificationRecord}` : modificationRecord;
                 statusMessage.textContent = `OK. Vache ${snit}/${normal} mise à jour.`; statusMessage.className = "success";
             } else {
-                const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal, Editeur: currentUser, Historique_Modifs: modificationRecord };
+                const nouvelleVache = { LOT: lot, SNIT: snit, NORMAL: normal, Editeur: CURRENT_USER, Historique_Modifs: modificationRecord };
                 nouvelleVache[state.activeSession] = pl;
                 controleData.push(nouvelleVache);
                 statusMessage.textContent = `OK. Nouvelle vache ${snit}/${normal} ajoutée.`; statusMessage.className = "success";
@@ -285,8 +241,8 @@
 
             globalData.data[state.activeFichier] = controleData;
             globalData.metadata[state.activeFichier].lastModif = new Date().toISOString();
-            globalData.metadata[state.activeFichier].editor = currentUser;
-            saveDataToFirebase(globalData);
+            globalData.metadata[state.activeFichier].editor = CURRENT_USER;
+            saveDataToLocalStorage(globalData); // Sauvegarde locale
 
             ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = '');
             document.getElementById('input-snit').focus();
@@ -314,9 +270,7 @@
         btnExportExcel.addEventListener('click', exportToExcel);
 
         // --- Initialisation de l'application ---
-        loginForm.addEventListener('submit', handleLogin);
-        userInfo.addEventListener('click', handleLogout);
-        checkLogin();
+        renderListeControles();
     });
     </script>
 </body>
