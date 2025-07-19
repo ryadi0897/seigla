@@ -14,7 +14,7 @@
             --couleur-bouton-hover: #ffbf00; --couleur-bouton-retour: #6d4c41;
             --couleur-bouton-retour-hover: #8d6e63; --couleur-bouton-valider: #28a745;
             --couleur-bouton-valider-hover: #218838;
-            --couleur-bouton-whatsapp: #25D366; --couleur-bouton-whatsapp-hover: #1EBE57;
+            --couleur-bouton-export: #007bff; --couleur-bouton-export-hover: #0056b3; /* Changé pour une couleur d'export */
             --couleur-bouton-supprimer: #dc3545; --couleur-bouton-supprimer-hover: #c82333;
             --couleur-texte-clair: white; --couleur-texte-fonce: black; --couleur-fond: white;
             --couleur-bordure: #ddd;
@@ -30,7 +30,7 @@
         .btn-principal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); } .btn-principal:hover { background-color: var(--couleur-bouton-hover); }
         .btn-retour { background-color: var(--couleur-bouton-retour); color: var(--couleur-texte-clair); } .btn-retour:hover { background-color: var(--couleur-bouton-retour-hover); }
         .btn-valider { background-color: var(--couleur-bouton-valider); color: var(--couleur-texte-clair); } .btn-valider:hover { background-color: var(--couleur-bouton-valider-hover); }
-        .btn-whatsapp { background-color: var(--couleur-bouton-whatsapp); color: var(--couleur-texte-clair); } .btn-whatsapp:hover { background-color: var(--couleur-bouton-whatsapp-hover); }
+        .btn-export { background-color: var(--couleur-bouton-export); color: var(--couleur-texte-clair); } .btn-export:hover { background-color: var(--couleur-bouton-export-hover); }
         .btn-supprimer { background-color: var(--couleur-bouton-supprimer); color: var(--couleur-texte-clair); } .btn-supprimer:hover { background-color: var(--couleur-bouton-supprimer-hover); }
         .btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
         .screen { display: none; } .screen.active { display: block; }
@@ -81,10 +81,10 @@
                     </table>
                 </div>
                 <div class="mt-40 text-center">
-                    <h3>Export & Partage</h3>
-                    <p class="sub-text">Partagez toutes les données locales.</p>
+                    <h3>Exportation des Données</h3>
+                    <p class="sub-text">Téléchargez toutes les données locales dans un fichier Excel.</p>
                     <div class="flex-buttons mt-20">
-                        <button id="btn-share-excel" class="btn btn-whatsapp">Partager Fichier Excel</button>
+                        <button id="btn-export-excel" class="btn btn-export">Exporter Fichier Excel</button>
                     </div>
                 </div>
             </div>
@@ -112,7 +112,7 @@
         const btnSupprimerControle = document.getElementById('btn-supprimer-controle');
         const btnRetourListe = document.getElementById('btn-retour-liste');
         const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
-        const btnShareExcel = document.getElementById('btn-share-excel');
+        const btnExportExcel = document.getElementById('btn-export-excel'); // ID du bouton mis à jour
         const controlesTableBody = document.getElementById('controles-table-body');
         const saisieForm = document.getElementById('saisie-form');
 
@@ -139,7 +139,7 @@
             state.selectedRow = null;
             
             const hasData = fichiers.length > 0;
-            btnShareExcel.disabled = !hasData;
+            btnExportExcel.disabled = !hasData;
 
             if (!hasData) {
                 controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="5">Aucun contrôle. Cliquez sur "AJOUTER UN CONTRÔLE" pour commencer.</td></tr>`;
@@ -257,52 +257,37 @@
 
         btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
 
-        function s2ab(s) {
-            const buf = new ArrayBuffer(s.length);
-            const view = new Uint8Array(buf);
-            for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
-            return buf;
-        }
-
-        async function shareExcelFile() {
+        // ==========================================================
+        // ===== SECTION CORRIGÉE POUR L'EXPORTATION SIMPLE =========
+        // ==========================================================
+        function exportExcelFile() {
             const data = globalData.data;
             if (!data || Object.keys(data).length === 0) {
-                alert("Aucune donnée à partager.");
+                alert("Aucune donnée à exporter.");
                 return;
             }
 
+            // Création du classeur Excel en mémoire
             const wb = XLSX.utils.book_new();
             const fileName = `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
             Object.keys(data).forEach(nomControle => {
                 const sheetData = data[nomControle] || [];
-                const orderedData = sheetData.map(row => { const newRow = {}; COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; }); return newRow; });
+                const orderedData = sheetData.map(row => { 
+                    const newRow = {}; 
+                    COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; }); 
+                    return newRow; 
+                });
                 const ws = XLSX.utils.json_to_sheet(orderedData, { header: COLONNES_DATA });
                 const sheetName = nomControle.replace(FICHIER_PREFIXE, "");
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
             });
             
-            if (navigator.share && navigator.canShare) {
-                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
-                const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
-                const file = new File([blob], fileName, { type: blob.type });
-                try {
-                    await navigator.share({
-                        title: 'Rapport de Contrôle SEIGLA',
-                        text: `Voici le rapport de contrôle du ${new Date().toLocaleDateString()}`,
-                        files: [file]
-                    });
-                } catch (error) {
-                    console.log('Partage annulé ou erreur:', error);
-                }
-            } else {
-                console.log("L'API de partage n'est pas supportée. Méthode de secours activée.");
-                XLSX.writeFile(wb, fileName);
-                alert("Le fichier Excel a été téléchargé.\n\nCliquez sur OK pour ouvrir WhatsApp. Vous pourrez ensuite attacher le fichier manuellement.");
-                window.open('https://web.whatsapp.com', '_blank');
-            }
+            // Déclenche simplement le téléchargement du fichier
+            XLSX.writeFile(wb, fileName);
         }
     
-        btnShareExcel.addEventListener('click', shareExcelFile);
+        btnExportExcel.addEventListener('click', exportExcelFile); // L'écouteur est lié à la nouvelle fonction
         btnSupprimerControle.addEventListener('click', handleDeleteControle);
         renderListeControles();
     });
