@@ -85,8 +85,8 @@
                     <h3>Export & Partage</h3>
                     <p class="sub-text">Exportez ou partagez toutes les données locales.</p>
                     <div class="flex-buttons mt-20">
-                        <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
-                        <button id="btn-send-whatsapp" class="btn btn-whatsapp">Envoyer par WhatsApp</button>
+                        <button id="btn-send-text-whatsapp" class="btn btn-whatsapp">Partager (Texte)</button>
+                        <button id="btn-send-excel-whatsapp" class="btn btn-valider">Partager Fichier Excel</button>
                     </div>
                 </div>
             </div>
@@ -114,8 +114,8 @@
         const btnSupprimerControle = document.getElementById('btn-supprimer-controle');
         const btnRetourListe = document.getElementById('btn-retour-liste');
         const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
-        const btnExportExcel = document.getElementById('btn-export-excel');
-        const btnSendWhatsApp = document.getElementById('btn-send-whatsapp');
+        const btnSendTextWhatsApp = document.getElementById('btn-send-text-whatsapp');
+        const btnSendExcelWhatsApp = document.getElementById('btn-send-excel-whatsapp');
         const controlesTableBody = document.getElementById('controles-table-body');
         const saisieForm = document.getElementById('saisie-form');
 
@@ -139,8 +139,8 @@
             state.selectedRow = null;
             
             const hasData = fichiers.length > 0;
-            btnExportExcel.disabled = !hasData;
-            btnSendWhatsApp.disabled = !hasData;
+            btnSendTextWhatsApp.disabled = !hasData;
+            btnSendExcelWhatsApp.disabled = !hasData;
 
             if (!hasData) {
                 controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="5">Aucun contrôle. Cliquez sur "AJOUTER UN CONTRÔLE" pour commencer.</td></tr>`;
@@ -267,7 +267,7 @@
         btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
         
         const exportToExcel = () => {
-            const data = globalData.data; if (!data || Object.keys(data).length === 0) { alert("Aucune donnée à exporter."); return; }
+            const data = globalData.data; if (!data || Object.keys(data).length === 0) { alert("Aucune donnée à exporter."); return false; }
             const wb = XLSX.utils.book_new();
             Object.keys(data).forEach(nomControle => {
                 const sheetData = data[nomControle] || [];
@@ -277,9 +277,10 @@
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
             });
             XLSX.writeFile(wb, `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`);
+            return true;
         };
         
-        const sendViaWhatsApp = () => {
+        const sendTextViaWhatsApp = () => {
             const data = globalData.data; if (!data || Object.keys(data).length === 0) { alert("Aucune donnée à partager."); return; }
             let message = "*Rapport de Contrôle SEIGLA*\n\n";
 
@@ -303,9 +304,17 @@
             window.open(whatsappUrl, '_blank');
         };
 
+        const prepareExcelForWhatsApp = () => {
+            const success = exportToExcel();
+            if (success) {
+                alert("Le fichier Excel a été téléchargé.\n\nCliquez sur OK pour ouvrir WhatsApp. Vous pourrez ensuite attacher le fichier manuellement.");
+                window.open('https://web.whatsapp.com', '_blank');
+            }
+        };
+
         // --- Initialisation et écouteurs d'événements ---
-        btnExportExcel.addEventListener('click', exportToExcel);
-        btnSendWhatsApp.addEventListener('click', sendViaWhatsApp);
+        btnSendTextWhatsApp.addEventListener('click', sendTextViaWhatsApp);
+        btnSendExcelWhatsApp.addEventListener('click', prepareExcelForWhatsApp);
         btnSupprimerControle.addEventListener('click', handleDeleteControle);
         renderListeControles();
     });
