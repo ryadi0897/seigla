@@ -6,7 +6,6 @@
     <title>Gestion de Contrôle - SEIGLA (Mode Local)</title>
     <link rel="icon" href="icon.png" type="image/png">
     
-    <!-- SDKs requis (Firebase et Crypto-JS ont été retirés) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
@@ -14,8 +13,12 @@
             --couleur-header: #f0a500; --couleur-bouton-principal: #f0a500;
             --couleur-bouton-hover: #ffbf00; --couleur-bouton-retour: #6d4c41;
             --couleur-bouton-retour-hover: #8d6e63; --couleur-bouton-valider: #28a745;
-            --couleur-bouton-valider-hover: #218838; --couleur-texte-clair: white;
-            --couleur-texte-fonce: black; --couleur-fond: white; --couleur-bordure: #ddd;
+            --couleur-bouton-valider-hover: #218838;
+            /* Couleurs pour WhatsApp et Supprimer */
+            --couleur-bouton-whatsapp: #25D366; --couleur-bouton-whatsapp-hover: #1EBE57;
+            --couleur-bouton-supprimer: #dc3545; --couleur-bouton-supprimer-hover: #c82333;
+            --couleur-texte-clair: white; --couleur-texte-fonce: black; --couleur-fond: white;
+            --couleur-bordure: #ddd;
         }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; background-color: var(--couleur-fond); color: var(--couleur-texte-fonce); display: flex; flex-direction: column; min-height: 100vh; }
         .container { width: 100%; max-width: 900px; margin: 0 auto; padding: 20px; box-sizing: border-box; flex-grow: 1; }
@@ -28,6 +31,8 @@
         .btn-principal { background-color: var(--couleur-bouton-principal); color: var(--couleur-texte-fonce); } .btn-principal:hover { background-color: var(--couleur-bouton-hover); }
         .btn-retour { background-color: var(--couleur-bouton-retour); color: var(--couleur-texte-clair); } .btn-retour:hover { background-color: var(--couleur-bouton-retour-hover); }
         .btn-valider { background-color: var(--couleur-bouton-valider); color: var(--couleur-texte-clair); } .btn-valider:hover { background-color: var(--couleur-bouton-valider-hover); }
+        .btn-whatsapp { background-color: var(--couleur-bouton-whatsapp); color: var(--couleur-texte-clair); } .btn-whatsapp:hover { background-color: var(--couleur-bouton-whatsapp-hover); }
+        .btn-supprimer { background-color: var(--couleur-bouton-supprimer); color: var(--couleur-texte-clair); } .btn-supprimer:hover { background-color: var(--couleur-bouton-supprimer-hover); }
         .btn:disabled { background-color: #c0c0c0; cursor: not-allowed; }
         .screen { display: none; } .screen.active { display: block; }
         h2 { margin-top: 0; }
@@ -61,25 +66,28 @@
         </div>
     </header>
     <div class="container">
-        <!-- L'écran de connexion a été supprimé -->
         <div id="app-content">
-            <div id="screen-list-controles" class="screen active"> <!-- Cet écran est maintenant actif par défaut -->
+            <div id="screen-list-controles" class="screen active">
                 <h2>Liste des contrôles</h2>
-                <p class="sub-text">Double-cliquez sur 'Statut' ou 'Notes' pour modifier.</p>
                 <div class="flex-buttons">
                     <button id="btn-ajouter-controle" class="btn btn-principal">AJOUTER UN CONTRÔLE</button>
                     <button id="btn-modifier-controle" class="btn btn-principal" disabled>MODIFIER LE CONTRÔLE</button>
+                    <button id="btn-supprimer-controle" class="btn btn-supprimer" disabled>SUPPRIMER LE CONTRÔLE</button>
                 </div>
                 <div class="table-container mt-20">
+                    <p class="sub-text">Cliquez sur une ligne pour la sélectionner, puis double-cliquez sur 'Statut' ou 'Notes' pour modifier.</p>
                     <table id="controles-table">
                         <thead><tr><th>Contrôle</th><th>Statut</th><th>Dernière modification</th><th>Notes</th><th>Dernière Modif. par</th></tr></thead>
                         <tbody id="controles-table-body"></tbody>
                     </table>
                 </div>
                 <div class="mt-40 text-center">
-                    <h3>Export Excel</h3>
-                    <p class="sub-text">Exportez toutes les données locales vers un fichier Excel.</p>
-                    <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
+                    <h3>Export & Partage</h3>
+                    <p class="sub-text">Exportez ou partagez toutes les données locales.</p>
+                    <div class="flex-buttons mt-20">
+                        <button id="btn-export-excel" class="btn btn-valider">Exporter vers Excel</button>
+                        <button id="btn-send-whatsapp" class="btn btn-whatsapp">Envoyer par WhatsApp</button>
+                    </div>
                 </div>
             </div>
             <div id="screen-session-choice" class="screen"><h2 id="session-choice-title">Fichier : </h2><p class="text-center mt-40">Choisissez une session de saisie :</p><div class="flex-buttons space-around mt-20"><button class="btn btn-principal session-btn" data-session="MATIN">MATIN</button><button class="btn btn-principal session-btn" data-session="MIDI">MIDI</button><button class="btn btn-principal session-btn" data-session="SOIR">SOIR</button></div><div class="text-center mt-40"><button id="btn-retour-liste" class="btn btn-retour">Retour au menu</button></div></div>
@@ -89,53 +97,32 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- NOUVELLE GESTION DES DONNÉES AVEC LOCALSTORAGE ---
         const LOCAL_STORAGE_KEY = "seigla_data_v1";
-        const CURRENT_USER = "Utilisateur Local"; // Utilisateur fixe
+        const CURRENT_USER = "Utilisateur Local";
 
-        // Fonction pour charger les données depuis le localStorage
         const loadDataFromLocalStorage = () => {
             const dataJSON = localStorage.getItem(LOCAL_STORAGE_KEY);
-            if (dataJSON) {
-                try {
-                    return JSON.parse(dataJSON);
-                } catch (e) {
-                    console.error("Erreur de parsing des données locales:", e);
-                    // En cas d'erreur, on retourne un objet vide pour ne pas planter l'app
-                    return { metadata: {}, data: {} };
-                }
-            }
-            // Si aucune donnée n'existe, on retourne un objet vide
-            return { metadata: {}, data: {} };
+            return dataJSON ? JSON.parse(dataJSON) : { metadata: {}, data: {} };
         };
-
-        // Fonction pour sauvegarder les données dans le localStorage
         const saveDataToLocalStorage = (data) => {
-            try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
-            } catch (e) {
-                console.error("Erreur de sauvegarde des données locales:", e);
-                alert("Erreur: Impossible de sauvegarder les données. Le stockage local est peut-être plein.");
-            }
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
         };
 
-        // --- Le reste de l'application utilise ces nouvelles fonctions ---
-
-        const appHeader = document.querySelector('.app-header');
-        const appContent = document.getElementById('app-content');
         const screens = { list: document.getElementById('screen-list-controles'), sessionChoice: document.getElementById('screen-session-choice'), saisie: document.getElementById('screen-saisie') };
         const btnAjouterControle = document.getElementById('btn-ajouter-controle');
         const btnModifierControle = document.getElementById('btn-modifier-controle');
+        const btnSupprimerControle = document.getElementById('btn-supprimer-controle');
         const btnRetourListe = document.getElementById('btn-retour-liste');
         const btnTerminerSaisie = document.getElementById('btn-terminer-saisie');
         const btnExportExcel = document.getElementById('btn-export-excel');
+        const btnSendWhatsApp = document.getElementById('btn-send-whatsapp');
         const controlesTableBody = document.getElementById('controles-table-body');
         const saisieForm = document.getElementById('saisie-form');
 
         const FICHIER_PREFIXE = "controle-";
         const COLONNES_DATA = ['LOT', 'SNIT', 'NORMAL', 'MATIN', 'MIDI', 'SOIR', 'Editeur', 'Historique_Modifs'];
         let state = { activeFichier: null, activeSession: null, selectedRow: null };
-        let globalData = loadDataFromLocalStorage(); // Chargement initial des données
+        let globalData = loadDataFromLocalStorage();
 
         const showScreen = (screenName) => { Object.values(screens).forEach(s => s.classList.remove('active')); screens[screenName].classList.add('active'); };
         
@@ -144,14 +131,22 @@
             const data = globalData.data || {};
             const fichiers = Object.keys(data).sort().reverse();
             controlesTableBody.innerHTML = '';
+            
             btnModifierControle.disabled = true;
+            btnSupprimerControle.disabled = true;
+            
             if (state.selectedRow) state.selectedRow.classList.remove('selected');
             state.selectedRow = null;
-            if (fichiers.length === 0) {
+            
+            const hasData = fichiers.length > 0;
+            btnExportExcel.disabled = !hasData;
+            btnSendWhatsApp.disabled = !hasData;
+
+            if (!hasData) {
                 controlesTableBody.innerHTML = `<tr class="empty-row"><td colspan="5">Aucun contrôle. Cliquez sur "AJOUTER UN CONTRÔLE" pour commencer.</td></tr>`;
-                btnExportExcel.disabled = true; return;
+                return;
             }
-            btnExportExcel.disabled = false;
+
             fichiers.forEach(fichier => {
                 const meta = metadata[fichier] || { statut: 'En cours', notes: '', lastModif: new Date().toISOString(), editor: 'N/A' };
                 const dateModif = new Date(meta.lastModif).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -160,7 +155,6 @@
                 row.innerHTML = `<td>${nomControle}</td><td class="editable-cell" data-field="statut">${meta.statut}</td><td>${dateModif}</td><td class="editable-cell" data-field="notes">${meta.notes}</td><td>${meta.editor || 'N/A'}</td>`;
                 controlesTableBody.appendChild(row);
                 
-                // Attacher les écouteurs d'événements ici
                 row.addEventListener('click', handleRowClick);
                 row.querySelectorAll('.editable-cell').forEach(cell => cell.addEventListener('dblclick', handleCellDoubleClick));
             });
@@ -169,7 +163,26 @@
         const handleRowClick = (e) => {
             const row = e.target.closest('tr'); if (!row || !row.dataset.fichier) return;
             if (state.selectedRow) state.selectedRow.classList.remove('selected');
-            row.classList.add('selected'); state.selectedRow = row; state.activeFichier = row.dataset.fichier; btnModifierControle.disabled = false;
+            row.classList.add('selected'); state.selectedRow = row; state.activeFichier = row.dataset.fichier;
+            
+            btnModifierControle.disabled = false;
+            btnSupprimerControle.disabled = false;
+        };
+        
+        const handleDeleteControle = () => {
+            if (!state.activeFichier) return;
+
+            const nomControleLisible = state.activeFichier.replace(FICHIER_PREFIXE, "");
+            const confirmation = confirm(`Êtes-vous sûr de vouloir supprimer définitivement le contrôle "${nomControleLisible}" ?\n\nCette action est irréversible.`);
+            
+            if (confirmation) {
+                delete globalData.data[state.activeFichier];
+                delete globalData.metadata[state.activeFichier];
+                saveDataToLocalStorage(globalData);
+                state.activeFichier = null;
+                state.selectedRow = null;
+                renderListeControles();
+            }
         };
         
         const handleCellDoubleClick = (e) => {
@@ -182,8 +195,8 @@
                 globalData.metadata[fichier][field] = newValue;
                 globalData.metadata[fichier].lastModif = new Date().toISOString();
                 globalData.metadata[fichier].editor = CURRENT_USER;
-                saveDataToLocalStorage(globalData); // Sauvegarde locale
-                renderListeControles(); // Re-render pour remettre la cellule en mode normal
+                saveDataToLocalStorage(globalData);
+                renderListeControles();
             };
             input.addEventListener('blur', saveChange); input.addEventListener('keydown', (evt) => { if (evt.key === 'Enter') input.blur(); if (evt.key === 'Escape') { renderListeControles(); }});
         };
@@ -196,8 +209,8 @@
             if (!globalData.data[nomFichier]) {
                 globalData.data[nomFichier] = [];
                 globalData.metadata[nomFichier] = { statut: 'En cours', notes: '', lastModif: new Date().toISOString(), editor: CURRENT_USER };
-                saveDataToLocalStorage(globalData); // Sauvegarde locale
-                renderListeControles(); // Mettre à jour la liste
+                saveDataToLocalStorage(globalData);
+                renderListeControles();
             }
             state.activeFichier = nomFichier; showScreen('sessionChoice');
             document.getElementById('session-choice-title').textContent = `Fichier : ${nomFichier.replace(FICHIER_PREFIXE, "")}`;
@@ -242,7 +255,7 @@
             globalData.data[state.activeFichier] = controleData;
             globalData.metadata[state.activeFichier].lastModif = new Date().toISOString();
             globalData.metadata[state.activeFichier].editor = CURRENT_USER;
-            saveDataToLocalStorage(globalData); // Sauvegarde locale
+            saveDataToLocalStorage(globalData);
 
             ['input-snit', 'input-normal', 'input-pl'].forEach(id => document.getElementById(id).value = '');
             document.getElementById('input-snit').focus();
@@ -254,11 +267,9 @@
         btnTerminerSaisie.addEventListener('click', () => { showScreen('sessionChoice'); });
         
         const exportToExcel = () => {
-            const data = globalData.data; if (!data) { alert("Aucune donnée à exporter."); return; }
-            const controles = Object.keys(data);
-            if (controles.length === 0) { alert("Aucune donnée à exporter."); return; }
+            const data = globalData.data; if (!data || Object.keys(data).length === 0) { alert("Aucune donnée à exporter."); return; }
             const wb = XLSX.utils.book_new();
-            controles.forEach(nomControle => {
+            Object.keys(data).forEach(nomControle => {
                 const sheetData = data[nomControle] || [];
                 const orderedData = sheetData.map(row => { const newRow = {}; COLONNES_DATA.forEach(col => { newRow[col] = row[col] !== undefined ? row[col] : null; }); return newRow; });
                 const ws = XLSX.utils.json_to_sheet(orderedData, { header: COLONNES_DATA });
@@ -267,9 +278,35 @@
             });
             XLSX.writeFile(wb, `Export_Controles_Seigla_${new Date().toISOString().split('T')[0]}.xlsx`);
         };
-        btnExportExcel.addEventListener('click', exportToExcel);
+        
+        const sendViaWhatsApp = () => {
+            const data = globalData.data; if (!data || Object.keys(data).length === 0) { alert("Aucune donnée à partager."); return; }
+            let message = "*Rapport de Contrôle SEIGLA*\n\n";
 
-        // --- Initialisation de l'application ---
+            Object.keys(data).forEach(nomControle => {
+                message += `--- *${nomControle.replace(FICHIER_PREFIXE, "")}* ---\n`;
+                const vaches = data[nomControle] || [];
+                if (vaches.length === 0) {
+                    message += "_Aucune saisie pour ce contrôle._\n";
+                } else {
+                    vaches.forEach(v => {
+                        message += `*LOT ${v.LOT} | ${v.SNIT}/${v.NORMAL}* :\n`;
+                        if (v.MATIN) message += `  - Matin: ${v.MATIN}\n`;
+                        if (v.MIDI) message += `  - Midi: ${v.MIDI}\n`;
+                        if (v.SOIR) message += `  - Soir: ${v.SOIR}\n`;
+                    });
+                }
+                message += "\n";
+            });
+            
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+            window.open(whatsappUrl, '_blank');
+        };
+
+        // --- Initialisation et écouteurs d'événements ---
+        btnExportExcel.addEventListener('click', exportToExcel);
+        btnSendWhatsApp.addEventListener('click', sendViaWhatsApp);
+        btnSupprimerControle.addEventListener('click', handleDeleteControle);
         renderListeControles();
     });
     </script>
